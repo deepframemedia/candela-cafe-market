@@ -543,6 +543,29 @@ button{font:inherit;cursor:pointer;border:none;background:none;color:inherit}
 .gf-input::placeholder{color:var(--gris)}
 .gf-required{color:var(--llama);margin-left:2px}
 
+/* ---- ORDER TYPE ---- */
+.order-type{padding:14px 0 0}
+.ot-label{
+  font-size:10px;font-weight:700;letter-spacing:.28em;
+  text-transform:uppercase;color:var(--gris);margin-bottom:8px;
+}
+.ot-toggle{
+  display:flex;
+  background:rgba(245,230,211,.06);
+  border:1px solid rgba(245,230,211,.1);
+  border-radius:10px;overflow:hidden;
+  padding:3px;gap:3px;
+}
+.ot-btn{
+  flex:1;padding:10px 8px;border-radius:8px;
+  font-size:11px;font-weight:700;letter-spacing:.09em;
+  text-transform:uppercase;
+  color:rgba(245,230,211,.45);
+  transition:all .2s;text-align:center;
+}
+.ot-btn.active{background:var(--llama);color:var(--crema)}
+.ot-btn[data-type="llevar"].active{background:var(--verde)}
+
 /* ---- ANIM ---- */
 @keyframes popIn{0%{transform:scale(.7);opacity:0}100%{transform:scale(1);opacity:1}}
 .pop{animation:popIn .18s cubic-bezier(.34,1.56,.64,1)}
@@ -873,6 +896,7 @@ const MENU = {
    STATE
    ================================================ */
 const cart = {}; // { id: { item, qty } }
+let orderType = 'aqui'; // 'aqui' | 'llevar'
 
 const cartCount  = () => Object.values(cart).reduce((s,{qty})=>s+qty, 0);
 const cartTotal  = () => Object.values(cart).reduce((s,{item,qty})=>s+item.price*qty, 0);
@@ -1035,16 +1059,23 @@ function renderCartSheet() {
       </div>
     </div>`;
   });
-  html += `<div class="guest-fields">
+  html += `<div class="order-type">
+    <div class="ot-label">Tipo de pedido</div>
+    <div class="ot-toggle">
+      <button class="ot-btn ${orderType==='aqui'?'active':''}" data-type="aqui">🍽️ Para comer aquí</button>
+      <button class="ot-btn ${orderType==='llevar'?'active':''}" data-type="llevar">🥡 Para llevar</button>
+    </div>
+  </div>
+  <div class="guest-fields">
     <div class="gf-row">
       <div class="gf-field">
         <div class="gf-label">Tu nombre<span class="gf-required">*</span></div>
         <input class="gf-input" type="text" id="guestName" placeholder="Nombre completo" autocomplete="given-name">
       </div>
-      <div class="gf-field">
+      ${orderType === 'aqui' ? `<div class="gf-field">
         <div class="gf-label">Mesa nº</div>
         <input class="gf-input" type="text" id="tableNum" placeholder="Ej: 4" autocomplete="off" inputmode="numeric">
-      </div>
+      </div>` : ''}
     </div>
   </div>
   <div class="note-wrap">
@@ -1062,6 +1093,21 @@ function renderCartSheet() {
     });
   });
 
+  // bind order-type toggle
+  body.querySelectorAll('.ot-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const prevName = document.getElementById('guestName')?.value || '';
+      const prevNote = document.getElementById('orderNote')?.value || '';
+      const prevTable = document.getElementById('tableNum')?.value || '';
+      orderType = btn.dataset.type;
+      renderCartSheet();
+      if (document.getElementById('guestName'))  document.getElementById('guestName').value  = prevName;
+      if (document.getElementById('tableNum'))   document.getElementById('tableNum').value   = prevTable;
+      if (document.getElementById('orderNote'))  document.getElementById('orderNote').value  = prevNote;
+      buildWaLink();
+    });
+  });
+
   buildWaLink();
   ['guestName','tableNum','orderNote'].forEach(id => {
     document.getElementById(id)?.addEventListener('input', buildWaLink);
@@ -1069,16 +1115,20 @@ function renderCartSheet() {
 }
 
 function buildWaLink() {
-  const name  = document.getElementById('guestName')?.value.trim() || '';
-  const table = document.getElementById('tableNum')?.value.trim() || '';
-  const note  = document.getElementById('orderNote')?.value.trim() || '';
+  const name    = document.getElementById('guestName')?.value.trim() || '';
+  const table   = document.getElementById('tableNum')?.value.trim() || '';
+  const note    = document.getElementById('orderNote')?.value.trim() || '';
+  const isLlevar = orderType === 'llevar';
 
-  let header = '¡Hola! Tengo un pedido';
-  if (name)  header += ` de *${name}*`;
-  if (table) header += ` · Mesa *${table}*`;
-  header += ':\n';
+  const typeIcon = isLlevar ? '🥡' : '🍽️';
+  const typeText = isLlevar ? '*Para llevar*' : '*Para comer aquí*';
 
-  let msg = `${header}\n🍽️ *Mi Pedido — Candela & Café*\n━━━━━━━━━━━━\n`;
+  let intro = `¡Hola! ${typeIcon} Pedido ${typeText}`;
+  if (name)               intro += ` · *${name}*`;
+  if (!isLlevar && table) intro += ` · Mesa *${table}*`;
+  intro += ':\n';
+
+  let msg = `${intro}\n*Candela & Café Market*\n━━━━━━━━━━━━\n`;
   Object.values(cart).forEach(({ item, qty }) => {
     msg += `• ${item.name} x${qty} — $${item.price * qty}\n`;
   });
